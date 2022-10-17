@@ -1,3 +1,4 @@
+//Compile as: gcc trabalho.c -o trabalho -lpthread
 
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -38,12 +39,12 @@ void desiste(long tid) {
     pthread_exit(NULL);
 }
 
-void get_hair_cut (long cliente) {
+void recebe_corte (long cliente) {
     printf("Cliente %ld: Cabelo sendo cortado\n", cliente);
     sleep(5);
 }
 
-void cut_hair (long barbeiro) {
+void realiza_corte (long barbeiro) {
     printf("Barbeiro %ld: Cabelo sendo cortado\n", barbeiro);
     sleep(3);
 }
@@ -59,7 +60,7 @@ void efetua_pagamento (long cliente) {
     printf("Cliente: %ld: Sinaliza pagamento\n", cliente);
 }
 
-void *barbeiro_behavior (void *id) {
+void *barbeiro_comportamento (void *id) {
     long tid;
     tid = (long)id;
     int value;
@@ -72,12 +73,12 @@ void *barbeiro_behavior (void *id) {
         };
         if(sem_trywait(&cliente) >= 0) {
             sem_post(&barbeiro);
-            cut_hair(tid);
+            realiza_corte(tid);
         }
     }
 }
 
-void *cliente_behavior(void *id){
+void *cliente_comportamento(void *id){
     long tid;
     tid = (long)id;
     
@@ -95,16 +96,19 @@ void *cliente_behavior(void *id){
     sem_wait(&barbeiro);
     sem_post(&sofa);
     printf("Cliente %ld se posiciona para cortar o cabelo\n", tid);
-    get_hair_cut(tid);
+    recebe_corte(tid);
     sem_post(&pagamento_cliente);
     efetua_pagamento(tid);
     sem_wait(&pagamento_barbeiro);
     printf("Cliente vai embora\n");
+    contador_fila1--;
+    printf("qtd: %d\n", contador_fila1);
+    return 0;
 }
     
 
 int main(int argc, char *argv[]){
-    int num = 30;
+    int num = 10;
     pthread_t thread_clientes[num];
     pthread_t thread_barbeiros[3];
 
@@ -119,19 +123,22 @@ int main(int argc, char *argv[]){
 
     for (b = 0; b < 3; b++) {
         sleep(rand() % 3);
-        pthread_create(&thread_barbeiros[b], NULL, barbeiro_behavior, (void *)b); 
+        pthread_create(&thread_barbeiros[b], NULL, barbeiro_comportamento, (void *)b); 
     }
 
     for (i = 0; i < num; i++) {
         // sleep(rand() % 3);
-        pthread_create(&thread_clientes[i], NULL, cliente_behavior, (void *)i); 
+        pthread_create(&thread_clientes[i], NULL, cliente_comportamento, (void *)i); 
     }
 
-    for(t=0; t< 3; t++){
-        pthread_join(thread_barbeiros[t], NULL);
-    }
-
-    for(c=0; c< 3; c++){
+    for(c=0; c< num; c++){
         pthread_join(thread_clientes[c], NULL);
     }
+
+    printf("Não há mais clientes\n");
+    sem_destroy(&sofa);
+    sem_destroy(&pagamento_barbeiro);
+    sem_destroy(&pagamento_cliente);
+    pthread_mutex_destroy(&mutex_clientes);
+    pthread_mutex_destroy(&mutex_pagamento);
 }
